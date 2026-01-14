@@ -1,45 +1,39 @@
 import { motion } from 'framer-motion'
 import { useGameStore } from '../store'
+import { useEffect } from 'react'
 
 export function Intro() {
     const startGame = useGameStore((state) => state.startGame)
 
+    // Auto-start game after 5 seconds
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            startGame()
+        }, 5000)
+
+        return () => clearTimeout(timer)
+    }, [startGame])
+
     return (
         <motion.div
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#fdf6e3] text-[#5c4033]"
-            initial={{ opacity: 1 }}
+            className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1 }}
         >
             <motion.img
-                src="/logo.png"
+                src="/Fox-Heaven.png"
                 alt="Fox Heaven"
-                className="w-64 h-64 mb-8 object-contain"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 2, ease: "easeOut" }}
+                className="max-w-2xl w-full px-8 object-contain drop-shadow-2xl"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{
+                    opacity: { duration: 1 },
+                    scale: { duration: 1.2, ease: "easeOut" }
+                }}
             />
-
-            <motion.h1
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1, duration: 1 }}
-                className="text-4xl font-serif mb-8 tracking-wider"
-            >
-                Fox Heaven
-            </motion.h1>
-
-            <motion.button
-                onClick={startGame}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.5 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 border-2 border-[#d46a2e] text-[#d46a2e] rounded-full text-xl hover:bg-[#d46a2e] hover:text-white transition-colors duration-300"
-            >
-                Enter Garden
-            </motion.button>
         </motion.div>
     )
 }

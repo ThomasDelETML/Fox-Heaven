@@ -7,6 +7,10 @@ interface GameStore {
     startGame: () => void
     cuddleCount: number
     incrementCuddle: () => void
+    // Track fox positions for social interactions
+    foxes: Record<string, [number, number, number]>
+    updateFox: (id: string, position: [number, number, number]) => void
+    removeFox: (id: string) => void
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -14,4 +18,12 @@ export const useGameStore = create<GameStore>((set) => ({
     startGame: () => set({ gameState: 'PLAYING' }),
     cuddleCount: 0,
     incrementCuddle: () => set((state) => ({ cuddleCount: state.cuddleCount + 1 })),
+    foxes: {},
+    updateFox: (id, position) => set((state) => ({
+        foxes: { ...state.foxes, [id]: position }
+    })),
+    removeFox: (id) => set((state) => {
+        const { [id]: _, ...remainingFoxes } = state.foxes
+        return { foxes: remainingFoxes }
+    }),
 }))
