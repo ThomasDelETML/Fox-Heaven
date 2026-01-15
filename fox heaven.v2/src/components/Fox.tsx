@@ -5,7 +5,7 @@ import { Float, Html } from '@react-three/drei'
 import { useGameStore } from '../store'
 
 // Fox States
-type FoxState = 'idle' | 'walking' | 'cuddle' | 'sitting' | 'sleeping' | 'interacting'
+type FoxState = 'idle' | 'walking' | 'cuddle' | 'sitting' | 'sleeping' | 'interacting' | 'picked'
 
 export function Fox({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
     const id = useMemo(() => Math.random().toString(36).substring(7), [])
@@ -18,6 +18,8 @@ export function Fox({ position = [0, 0, 0] }: { position?: [number, number, numb
     const updateFox = useGameStore((state) => state.updateFox)
     const removeFox = useGameStore((state) => state.removeFox)
     const otherFoxes = useGameStore((state) => state.foxes)
+    const heldFoxId = useGameStore((state) => state.heldFoxId)
+    const setHeldFox = useGameStore((state) => state.setHeldFox)
 
     // Random movement target
     const target = useRef(new THREE.Vector3(
@@ -34,8 +36,8 @@ export function Fox({ position = [0, 0, 0] }: { position?: [number, number, numb
     // Behavior timer
     useEffect(() => {
         const interval = setInterval(() => {
-            // Don't change state if being cuddled or interacting
-            if (foxState === 'cuddle' || foxState === 'interacting') return
+            // Don't change state if being cuddled, interacting or picked
+            if (foxState === 'cuddle' || foxState === 'interacting' || foxState === 'picked') return
 
             const rand = Math.random()
             if (rand < 0.5) {
@@ -79,6 +81,37 @@ export function Fox({ position = [0, 0, 0] }: { position?: [number, number, numb
         if (currentPos.distanceTo(lastUpdatePos.current) > 0.2) {
             updateFox(id, [currentPos.x, currentPos.y, currentPos.z])
             lastUpdatePos.current.copy(currentPos)
+        }
+
+        if (id === heldFoxId) {
+            // Calculate target position in front of camera
+            const camera = state.camera
+            const direction = new THREE.Vector3()
+            camera.getWorldDirection(direction)
+
+            // Fixed distance from camera
+            const holdDistance = 4
+            const targetPos = new THREE.Vector3()
+            targetPos.copy(camera.position).add(direction.multiplyScalar(holdDistance))
+
+            // Stay near ground
+            targetPos.y = 0.5
+
+            // Lerp position for smoothness
+            group.current.position.lerp(targetPos, delta * 8)
+
+            // Face camera but stay upright
+            const lookPos = new THREE.Vector3(camera.position.x, group.current.position.y, camera.position.z)
+            group.current.lookAt(lookPos)
+
+            // Floating animation when held
+            group.current.position.y += Math.sin(state.clock.elapsedTime * 4) * 0.1
+
+            // Reset rotations that might be stuck from other states
+            group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, 0, delta * 5)
+            group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, 0, delta * 5)
+
+            return
         }
 
         if (foxState === 'walking') {
@@ -159,19 +192,49 @@ export function Fox({ position = [0, 0, 0] }: { position?: [number, number, numb
         }
     })
 
-    const interact = () => {
+    const cuddle = () => {
+        if (heldFoxId === id) return // Can't cuddle if carrying (or maybe we can? usually better to pick up)
         if (foxState === 'sleeping') setShowSocial(null)
         setFoxState('cuddle')
         setShowHearts(true)
         incrementCuddle()
         setTimeout(() => {
-            setFoxState('idle')
+            if (foxState !== 'picked') setFoxState('idle')
             setShowHearts(false)
         }, 3000)
     }
 
+    const togglePick = (e: any) => {
+        e.stopPropagation()
+        // Prevent default context menu
+        if (e.nativeEvent instanceof MouseEvent) {
+            e.nativeEvent.preventDefault()
+        }
+
+        if (heldFoxId === id) {
+            // Put down
+            setHeldFox(null)
+            setFoxState('idle')
+            if (group.current) {
+                group.current.position.y = 0
+            }
+        } else if (heldFoxId === null) {
+            // Pick up
+            setHeldFox(id)
+            setFoxState('picked')
+            setShowSocial(null)
+        }
+    }
+
     return (
-        <group ref={group} position={position} onClick={interact} onPointerOver={() => document.body.style.cursor = 'pointer'} onPointerOut={() => document.body.style.cursor = 'auto'}>
+        <group
+            ref={group}
+            position={position}
+            onClick={(e) => { e.stopPropagation(); cuddle(); }}
+            onContextMenu={togglePick}
+            onPointerOver={() => document.body.style.cursor = 'pointer'}
+            onPointerOut={() => document.body.style.cursor = 'auto'}
+        >
             {/* Visual Body */}
             <group>
                 {/* Main Body */}
@@ -287,6 +350,15 @@ export function Fox({ position = [0, 0, 0] }: { position?: [number, number, numb
                 <Html position={[0, 1.5, 0]} center>
                     <div className="text-2xl select-none pointer-events-none">
                         {foxState === 'sleeping' ? '💤' : showSocial}
+                    </div>
+                </Html>
+            )}
+
+            {/* Picked up label */}
+            {foxState === 'picked' && (
+                <Html position={[0, 1.8, 0]} center>
+                    <div className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-orange-600 font-bold text-sm shadow-lg whitespace-nowrap animate-bounce border-2 border-orange-200">
+                        Put me down!
                     </div>
                 </Html>
             )}

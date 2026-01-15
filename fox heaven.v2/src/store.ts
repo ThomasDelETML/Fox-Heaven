@@ -11,6 +11,8 @@ interface GameStore {
     foxes: Record<string, [number, number, number]>
     updateFox: (id: string, position: [number, number, number]) => void
     removeFox: (id: string) => void
+    heldFoxId: string | null
+    setHeldFox: (id: string | null) => void
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -26,4 +28,6 @@ export const useGameStore = create<GameStore>((set) => ({
         const { [id]: _, ...remainingFoxes } = state.foxes
         return { foxes: remainingFoxes }
     }),
+    heldFoxId: null,
+    setHeldFox: (id) => set({ heldFoxId: id }),
 }))
